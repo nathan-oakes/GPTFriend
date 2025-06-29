@@ -15,3 +15,4 @@ yarn-error.log*
 # Chat and backup files (optional, if you want to keep these private)
 chat_history.json
 Nathan_Oakes_ChatGPT_Backup.txt
+.env
