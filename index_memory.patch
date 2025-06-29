@@ -1,0 +1,58 @@
+[200~diff --git a/index.js b/index.js
+index e69de29..abcd123 100644
+--- a/index.js
++++ b/index.js
+@@ -1,4 +1,5 @@
+ require('dotenv').config();
++const path = require('path');
+ const fs = require('fs');
+ const readline = require('readline');
+ const OpenAI = require('openai');
+@@ -8,6 +9,7 @@ const openai = new OpenAI({
+   apiKey: process.env.OPENAI_API_KEY
+ });
+
++const { saveToMemory, retrieveRelevantMemories } = require('./embeddingUtils');
+
+ // Load or create your profile/context
+-const profilePath = './nathan_profile.json';
++const profilePath = path.join(__dirname, 'nathan_profile.json');
+ let profile = fs.existsSync(profilePath)
+   ? JSON.parse(fs.readFileSync(profilePath))
+   : { summary: "Nathan Oakes, Kings Beach, ... (etc)" };
+@@ -15,7 +17,7 @@ let profile = fs.existsSync(profilePath)
+ // Load chat history
+-const historyPath = './chat_history.json';
++const historyPath = path.join(__dirname, 'chat_history.json');
+ let history = fs.existsSync(historyPath)
+   ? JSON.parse(fs.readFileSync(historyPath))
+   : [];
+@@ -23,7 +25,13 @@ const rl = readline.createInterface({ input: process.stdin, output: process.
+ async function chat() {
+   rl.question('You: ', async (input) => {
+     history.push({ role: "user", content: input });
++    await saveToMemory(input, "user");
++
++    // fetch top-3 semantically relevant memories
++    const relevantMemories = await retrieveRelevantMemories(input, 3);
++    const memoryMessages = relevantMemories.map(m => ({
++      role: m.role,
++      content: `Memory: ${m.text}`
++    }));
+
+     const context = [
+       { role: "system", content: profile.summary },
+-      ...history.slice(-10)
++      ...memoryMessages,
++      ...history.slice(-10)
+     ];
+
+@@ -37,6 +45,8 @@ async function chat() {
+     const aiMessage = completion.choices[0].message.content;
+     console.log('\nAI:', aiMessage, '\n');
++
++    await saveToMemory(aiMessage, "assistant");
+
+     history.push({ role: "assistant", content: aiMessage });
+     fs.writeFileSync(historyPath, JSON.stringify(history, null, 2));
+
